@@ -105,6 +105,6 @@ def generate_launch_description():
     launch_description.add_action(rviz)
     launch_description.add_action(gazebo)
     launch_description.add_action(spawn_entity)
-    launch_description.add_action(controller)
+    # launch_description.add_action(controller)
     launch_description.add_action(rsp)
     return launch_description
