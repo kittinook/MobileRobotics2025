@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:property name="M_PI" value="3.1415926535897931" />
+  <xacro:property name="chassis_width" value="0.27" />
+  <xacro:property name="chassis_collision_ellipse_height" value="0.17" />
+
+  <xacro:macro name="pioneer_chassis" params="name parent xyz rpy models_dir:=^">   
+        
+        
+  <!-- Chassis -->
+  <joint name="${parent}_${name}_joint" type="fixed">
+    <origin xyz="${xyz}" rpy="${rpy}"/>
+    <parent link="${parent}"/>
+    <child link="${name}"/>
+  </joint>
+  <link name="${name}">
+    <xacro:box_inertial_with_origin x="${chassis_width}" y="${chassis_width}"  z="${chassis_collision_ellipse_height}" mass="5.67" xyz="${-chassis_width/4} 0 ${chassis_collision_ellipse_height/2}"/>
+    <visual>
+      <origin xyz="-0.045 0 ${chassis_collision_ellipse_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://${models_dir}/pioneer3dx/body/meshes/chassis.dae"/>
+      </geometry>
+      <material name="ChassisRed">
+        <color rgba="0.851 0.0 0.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${chassis_collision_ellipse_height/2}" rpy="0 0 0"/>
+      <geometry>
+          <cylinder radius="${chassis_width/2}" length="${chassis_collision_ellipse_height}"/> 
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-${chassis_width/2} 0 ${chassis_collision_ellipse_height/2}" rpy="0 0 0"/>
+      <geometry>
+          <cylinder radius="${chassis_width/2}" length="${chassis_collision_ellipse_height}"/> 
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="${name}">
+    <material value="Gazebo/Red"/>
+  </gazebo>
+  
+  <!-- Top -->
+  <joint name="${name}_top_joint" type="fixed">
+    <origin xyz="0 0 0.245" rpy="0 0 0"/>
+    <parent link="${parent}"/>
+    <child link="top"/>
+  </joint>
+  <link name="top">
+    <visual>
+      <origin xyz="-0.045 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://${models_dir}/pioneer3dx/body/meshes/top.dae"/>
+      </geometry>
+      <material name="TopBlack">
+        <color rgba="0.038 0.038 0.038 1.0"/>
+      </material>
+    </visual>
+  </link>
+  <gazebo reference="top">
+    <material value="Gazebo/Black"/>
+  </gazebo>
+  
+  </xacro:macro>
+
+</robot>

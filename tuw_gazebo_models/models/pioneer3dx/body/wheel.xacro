@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<robot  
+  xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:macro name="pioneer_wheel" params="name parent xyz rpy radius models_dir:=^">   
+
+    <!-- Wheel -->
+    <joint name="${name}_wheel_joint" type="continuous">
+		<origin xyz="${xyz}" rpy="${rpy}"/>
+		<parent link="${parent}"/>
+		<child link="${name}_wheel"/>
+		<axis xyz="0 1 0"/>
+    </joint>
+    <link name="${name}_wheel">
+		<xacro:cylinder_inertial_with_origin radius="${radius}" length="0.02" mass="0.5" xyz="0 0 0" rpy="${pi/2} 0 0"/>
+		<visual>
+			<origin xyz="0 0 0" rpy="0 0 0"/>
+			<geometry> 
+				<mesh filename="file://${models_dir}/pioneer3dx/body/meshes/wheel.dae"/> 
+			</geometry>
+			<material name="WheelBlack"> <color rgba="0.117 0.117 0.117 1"/> </material>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+			<geometry> 
+				<cylinder radius="${radius}" length="0.001"/>
+			</geometry>
+		</collision>
+    </link>
+		<gazebo reference="${name}_wheel">
+		<material value="Gazebo/Black"/>
+    </gazebo>
+
+    <!-- Hubcap -->
+    <joint name="${name}_hub_joint" type="fixed">
+		<origin xyz="0 0 0" rpy="0 0 0"/>
+		<axis xyz="0 1 0"/>
+		<parent link="${name}_wheel"/>
+		<child link="${name}_hub"/>
+    </joint>
+    <link name="${name}_hub">
+		<visual>
+			<origin xyz="0 0 0" rpy="0 0 0"/>
+			<geometry> 
+				<mesh filename="file://${models_dir}/pioneer3dx/body/meshes/hubcap.dae"/> 
+			</geometry>
+			<material name="HubcapYellow"> <color rgba="1.0 0.811 0.151 1.0"/> </material>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0" rpy="0 0 0"/>
+			<geometry> 
+				<box size="0.001 0.001 0.001"/> 
+			</geometry>
+		</collision>
+    </link>
+		<gazebo reference="${name}_hub">
+		<material value="Gazebo/Yellow"/>
+    </gazebo>
+  
+  </xacro:macro>
+
+</robot>
