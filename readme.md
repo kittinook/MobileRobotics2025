@@ -9,6 +9,7 @@ Configuration Guide : https://docs.nav2.org/configuration/index.html
 ROS 2 Navigation Tuning Guide – Nav2 : https://automaticaddison.com/ros-2-navigation-tuning-guide-nav2
 nav2_rosdevday_2021 (Old Version) : https://github.com/SteveMacenski/nav2_rosdevday_2021
 Write an action server and client : https://docs.ros.org/en/humble/Tutorials/Intermediate/Writing-an-Action-Server-Client/Py.html
+F1TENTH_PROJECT : https://github.com/kkwxnn/F1TENTH_PROJECT
 
 ## Command
 ``` bash
@@ -106,9 +107,9 @@ git clone https://github.com/tchoopojcharoen/ROS2_pkg_cpp_py.git
 
 # Generate new packages (replace {YOUR_WORKSPACE} and {PACKAGE_NAME} as needed)
 . ROS2_pkg_cpp_py/install_pkg.bash {YOUR_WORKSPACE} {PACKAGE_NAME}
-. ROS2_pkg_cpp_py/install_pkg.bash ~/fra532_lecture5_ws fra532_nav
-. ROS2_pkg_cpp_py/install_pkg.bash ~/fra532_lecture5_ws fra532_slam
-. ROS2_pkg_cpp_py/install_pkg.bash ~/fra532_lecture5_ws fra532_gazebo
+. ROS2_pkg_cpp_py/install_pkg.bash fra532_lecture5_ws fra532_nav
+. ROS2_pkg_cpp_py/install_pkg.bash fra532_lecture5_ws fra532_slam
+. ROS2_pkg_cpp_py/install_pkg.bash fra532_lecture5_ws fra532_gazebo
 ```
 
 *** Try to create our world from this file
@@ -165,34 +166,61 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     warehouse_pkg_dir = get_package_share_directory('aws_robomaker_small_warehouse_world')
     warehouse_launch_path = os.path.join(warehouse_pkg_dir, 'launch')
 
-    # Additional directories for the robot
+    # Add Here
     mir_description_dir = get_package_share_directory('mir_description')
     mir_gazebo_dir = get_package_share_directory('mir_gazebo')
-    gazebo_ros_dir = get_package_share_directory('gazebo_ros')
+
 
     warehouse_world_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([warehouse_launch_path, '/no_roof_small_warehouse.launch.py'])
     )
 
-    # Spawn the robot in Gazebo
+    # Add Here
+    launch_mir_description = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(mir_description_dir, 'launch', 'mir_launch.py')
+        )
+    )
+
+    launch_mir_gazebo_common = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(mir_gazebo_dir, 'launch',
+                         'include', 'mir_gazebo_common.py')
+        )
+    )
+
+
+    launch_teleop = Node(
+        package='teleop_twist_keyboard',
+        executable='teleop_twist_keyboard',
+        namespace='',
+        output='screen',
+        prefix='xterm -e')
+    
     spawn_robot = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
-        arguments=['-entity', LaunchConfiguration('robot_name'),
-                   '-topic', 'robot_description',
-                   '-b'],  # Bond the node to the Gazebo model
-        namespace=LaunchConfiguration('namespace'),
-        output='screen'
-    )
+        arguments=['-entity', 'mir_robot',
+                '-topic', 'robot_description',
+                '-b'],  # bond node to gazebo model,
+        namespace='',
+        output='screen')
 
     ld = LaunchDescription()
+
+    ld.add_action(launch_teleop)
     ld.add_action(warehouse_world_cmd)
+    ld.add_action(launch_mir_description)
+    ld.add_action(launch_mir_gazebo_common)
     ld.add_action(spawn_robot)
+
     return ld
 ```
 
@@ -213,85 +241,62 @@ In the `fra532_slam` Package
 
 ``` python
 import os
+
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, SetLaunchConfiguration
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, \
+    SetLaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
+from launch_ros.actions import Node
 
 def generate_launch_description():
-    mir_driver_dir = get_package_share_directory('mir_driver')
-    mir_nav_dir = get_package_share_directory('mir_navigation')
 
-    def declare_rviz_config(context):
-        nav_enabled = context.launch_configurations['navigation_enabled']
-        if nav_enabled == 'true':
-            config_file = os.path.join(mir_nav_dir, 'rviz', 'mir_mapping_nav.rviz')
-        else:
-            config_file = os.path.join(mir_nav_dir, 'rviz', 'mir_mapping.rviz')
-        return [SetLaunchConfiguration('rviz_config_file', config_file)]
+    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+
+    rviz_config_dir = os.path.join(get_package_share_directory('fra532_slam'), 'rviz')
+    rviz_config_file = os.path.join(rviz_config_dir, 'mapping.rviz')
+    
 
     declare_use_sim_time_argument = DeclareLaunchArgument(
         'use_sim_time',
-        default_value='false',
-        description='Use simulation/Gazebo clock'
-    )
+        default_value='true',
+        description='Use simulation/Gazebo clock')
 
     declare_slam_params_file_cmd = DeclareLaunchArgument(
         'slam_params_file',
-        default_value=os.path.join(get_package_share_directory("mir_navigation"), 'config', 'mir_mapping_async.yaml'),
-        description='Full path to the ROS2 parameters file for the slam_toolbox node'
-    )
+        default_value=os.path.join(get_package_share_directory("fra532_slam"),
+                                   'config', 'mapping_async.yaml'),
+        description='Full path to the ROS2 parameters file to use for the slam_toolbox node')
 
-    declare_nav_argument = DeclareLaunchArgument(
-        'navigation_enabled',
-        default_value='false',
-        description='Enable navigation during mapping'
-    )
+    launch_mapping = Node(
+        parameters=[
+            LaunchConfiguration('slam_params_file'),
+            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+        ],
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        output='screen')
 
-    declare_namespace_arg = DeclareLaunchArgument(
-        'namespace',
-        default_value='',
-        description='Namespace to apply to all topics'
-    )
-
-    start_driver_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(mir_driver_dir, 'launch', 'mir_launch.py')
-        ),
-        launch_arguments={'rviz_config_file': LaunchConfiguration('rviz_config_file')}.items()
-    )
-
-    launch_mapping = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(mir_nav_dir, 'launch', 'include', 'mapping.py')
-        ),
-        launch_arguments=[
-            ('use_sim_time', LaunchConfiguration('use_sim_time')),
-            ('slam_params_file', LaunchConfiguration('slam_params_file'))
-        ]
-    )
-
-    launch_navigation_if_enabled = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(mir_nav_dir, 'launch', 'include', 'navigation.py')
-        ),
-        condition=IfCondition(LaunchConfiguration('navigation_enabled')),
-        launch_arguments={'map_subscribe_transient_local': 'true'}.items()
-    )
-
+    rviz = Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            arguments=['-d', rviz_config_file],
+            parameters=[{'use_sim_time': use_sim_time}])
     ld = LaunchDescription()
-    ld.add_action(declare_namespace_arg)
+
     ld.add_action(declare_use_sim_time_argument)
-    ld.add_action(declare_nav_argument)
     ld.add_action(declare_slam_params_file_cmd)
-    ld.add_action(OpaqueFunction(function=declare_rviz_config))
-    ld.add_action(start_driver_cmd)
+    ld.add_action(rviz)
     ld.add_action(launch_mapping)
-    ld.add_action(launch_navigation_if_enabled)
+
     return ld
 ```
+
 4. Create the file mapping_async.yaml in the config folder with the following content:
 
 ``` bash
@@ -462,21 +467,21 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    # Define the directory of the related package (Nav2 bringup)
+    # กำหนดตำแหน่งของแพ็คเกจที่เกี่ยวข้อง
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
-    # Change the package name below to match your package that contains your map and parameter files
+    # เปลี่ยนชื่อแพ็คเกจด้านล่างให้ตรงกับแพ็คเกจของคุณที่เก็บ map และ parameter
     my_nav_pkg_dir = get_package_share_directory('fra532_nav')
     
-    # Define the paths to the configuration files
+    # กำหนดตำแหน่งไฟล์ configuration ต่างๆ
     rviz_config_file = os.path.join(my_nav_pkg_dir, 'rviz', 'navigation.rviz')
     map_yaml_file = os.path.join(my_nav_pkg_dir, 'maps', 'map.yaml')
     params_file = os.path.join(my_nav_pkg_dir, 'params', 'basic_params.yaml')
     
-    # Create LaunchConfigurations for the arguments
+    # สร้าง LaunchConfigurations สำหรับการกำหนด argument
     slam = LaunchConfiguration('slam')
     use_sim_time = LaunchConfiguration('use_sim_time')
     
-    # Declare Launch Arguments
+    # ประกาศ Launch Arguments
     declare_slam_cmd = DeclareLaunchArgument(
         'slam',
         default_value='False',
@@ -501,7 +506,7 @@ def generate_launch_description():
         description='Full path to the ROS2 parameters file to use for all launched nodes'
     )
     
-    # Include the nav2_bringup launch file which starts the main navigation nodes
+    # รวม launch file ของ nav2_bringup ซึ่งจะเริ่ม node หลักของ navigation
     bringup_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')),
         launch_arguments={
@@ -513,7 +518,7 @@ def generate_launch_description():
         }.items()
     )
     
-    # Include the RViz launch for viewing navigation status (optional)
+    # รวม RViz launch สำหรับการดูสถานะของ navigation (เลือกใช้งานได้)
     rviz_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(nav2_bringup_dir, 'launch', 'rviz_launch.py')),
         launch_arguments={
@@ -524,39 +529,33 @@ def generate_launch_description():
     )
     
     # UNCOMMENT HERE FOR KEEPOUT DEMO
-    # Launch a node for the lifecycle manager to manage costmap filter nodes
-    start_lifecycle_manager_cmd = Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_costmap_filters',
-            output='screen',
-            emulate_tty=True,
-            parameters=[{'use_sim_time': use_sim_time},
-                        {'autostart': True},
-                        {'node_names': ['filter_mask_server', 'costmap_filter_info_server']}]
-    )
+    # start_lifecycle_manager_cmd = Node(
+    #         package='nav2_lifecycle_manager',
+    #         executable='lifecycle_manager',
+    #         name='lifecycle_manager_costmap_filters',
+    #         output='screen',
+    #         emulate_tty=True,
+    #         parameters=[{'use_sim_time': use_sim_time},
+    #                     {'autostart': True},
+    #                     {'node_names': ['filter_mask_server', 'costmap_filter_info_server']}])
 
-    # Launch a node for the map server (filter mask server)
-    start_map_server_cmd = Node(
-            package='nav2_map_server',
-            executable='map_server',
-            name='filter_mask_server',
-            output='screen',
-            emulate_tty=True,
-            parameters=[params_file]
-    )
+    # start_map_server_cmd = Node(
+    #         package='nav2_map_server',
+    #         executable='map_server',
+    #         name='filter_mask_server',
+    #         output='screen',
+    #         emulate_tty=True,
+    #         parameters=[params_file])
 
-    # Launch a node for the costmap filter info server
-    start_costmap_filter_info_server_cmd = Node(
-            package='nav2_map_server',
-            executable='costmap_filter_info_server',
-            name='costmap_filter_info_server',
-            output='screen',
-            emulate_tty=True,
-            parameters=[params_file]
-    )
+    # start_costmap_filter_info_server_cmd = Node(
+    #         package='nav2_map_server',
+    #         executable='costmap_filter_info_server',
+    #         name='costmap_filter_info_server',
+    #         output='screen',
+    #         emulate_tty=True,
+    #         parameters=[params_file])
     
-    # Create the launch description and add all actions
+    # สร้าง launch description และเพิ่ม action ทั้งหมดลงไป
     ld = LaunchDescription()
     ld.add_action(declare_slam_cmd)
     ld.add_action(declare_use_sim_time_cmd)
@@ -565,7 +564,7 @@ def generate_launch_description():
     ld.add_action(bringup_cmd)
     ld.add_action(rviz_cmd)
 
-    # UNCOMMENT HERE FOR KEEPOUT DEMO: add the nodes for costmap filtering
+    # UNCOMMENT HERE FOR KEEPOUT DEMO
     # ld.add_action(start_lifecycle_manager_cmd)
     # ld.add_action(start_map_server_cmd)
     # ld.add_action(start_costmap_filter_info_server_cmd)
@@ -818,7 +817,7 @@ global_costmap:
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
-      filters: ["keepout_filter"] # UNCOMMENT HERE FOR KEEPOUT DEMO
+      # filters: ["keepout_filter"] # UNCOMMENT HERE FOR KEEPOUT DEMO
       keepout_filter:
         plugin: "nav2_costmap_2d::KeepoutFilter"
         enabled: True
@@ -938,21 +937,21 @@ velocity_smoother:
     velocity_timeout: 1.0
 
 # UNCOMMENT HERE FOR KEEPOUT DEMO
-costmap_filter_info_server:
-  ros__parameters:
-    use_sim_time: true
-    type: 0
-    filter_info_topic: "/costmap_filter_info"
-    mask_topic: "/keepout_filter_mask"
-    base: 0.0
-    multiplier: 1.0
+# costmap_filter_info_server:
+#   ros__parameters:
+#     use_sim_time: true
+#     type: 0
+#     filter_info_topic: "/costmap_filter_info"
+#     mask_topic: "/keepout_filter_mask"
+#     base: 0.0
+#     multiplier: 1.0
 
-filter_mask_server:
-  ros__parameters:
-    use_sim_time: true
-    frame_id: "map"
-    topic_name: "/keepout_filter_mask"
-    yaml_filename: "/home/kittinook/fra532_lecture5_ws/src/fra532_nav/maps/map_nav.yaml"
+# filter_mask_server:
+#   ros__parameters:
+#     use_sim_time: true
+#     frame_id: "map"
+#     topic_name: "/keepout_filter_mask"
+#     yaml_filename: "/home/kittinook/fra532_lecture5_ws/src/fra532_nav/maps/map_nav.yaml"
 
 ```
 
@@ -976,7 +975,9 @@ If needed, install an image editor like GIMP:
 sudo apt-get install gimp
 ```
 
-UNCOMMENT HERE FOR KEEPOUT DEMO: add the nodes for costmap filtering in navigation.launch.py
+**UNCOMMENT HERE FOR KEEPOUT DEMO:**
+1. add the nodes for costmap filtering in navigation.launch.py
+2. basic_paams.yaml
 
 Map for Navigation and Localization
 
