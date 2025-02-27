@@ -5,11 +5,11 @@ This repository provides a comprehensive guide to setting up, building, and laun
 <img src="media/system_overview.png" alt="Warehouse" width="800"/>
 
 ## Credit
-Configuration Guide : https://docs.nav2.org/configuration/index.html
-ROS 2 Navigation Tuning Guide – Nav2 : https://automaticaddison.com/ros-2-navigation-tuning-guide-nav2
-nav2_rosdevday_2021 (Old Version) : https://github.com/SteveMacenski/nav2_rosdevday_2021
-Write an action server and client : https://docs.ros.org/en/humble/Tutorials/Intermediate/Writing-an-Action-Server-Client/Py.html
-F1TENTH_PROJECT : https://github.com/kkwxnn/F1TENTH_PROJECT
+- Configuration Guide : https://docs.nav2.org/configuration/index.html
+- ROS 2 Navigation Tuning Guide – Nav2 : https://automaticaddison.com/ros-2-navigation-tuning-guide-nav2
+- nav2_rosdevday_2021 (Old Version) : https://github.com/SteveMacenski/nav2_rosdevday_2021
+- Write an action server and client : https://docs.ros.org/en/humble/Tutorials/Intermediate/Writing-an-Action-Server-Client/Py.html
+- F1TENTH_PROJECT : https://github.com/kkwxnn/F1TENTH_PROJECT
 
 ## Command
 ``` bash
