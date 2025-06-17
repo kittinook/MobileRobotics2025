@@ -37,8 +37,8 @@ Run the following commands to create and initialize your ROS2 workspace:
 ``` bash
 source /opt/ros/humble/setup.bash
 mkdir -p ~/fra532_lecture5_ws/src
-colcon build
-source ~/fra532_lecture5_ws/install/setup.bash
+cd fra532_lecture5_ws/
+colcon build && source install/setup.bash
 ```
 
 To automatically source the workspace in every terminal, add this line to your `~/.bashrc`:
@@ -52,8 +52,6 @@ echo "source ~/fra532_lecture5_ws/install/setup.bash" >> ~/.bashrc
 Clone the MIR robot package into your workspace and install its dependencies:
 
 ``` bash
-cd ~/fra532_lecture5_ws/
-
 # Clone mir_robot into the ROS2 workspace
 git clone -b humble-devel https://github.com/relffok/mir_robot src/mir_robot
 
@@ -67,8 +65,7 @@ rosdep update --rosdistro=humble
 rosdep install --from-paths src --ignore-src -r -y --rosdistro humble
 
 # Build all packages in the workspace
-cd ~/fra532_lecture5_ws
-colcon build
+colcon build && source install/setup.bash
 ```
 
 ## 3. Launch the MIR Gazebo Simulation
@@ -83,7 +80,7 @@ ros2 launch mir_gazebo mir_gazebo_launch.py world:=maze rviz_config_file:=$(ros2
 Clone and build the warehouse world package:
 
 ``` bash
-cd
+cd src/
 git clone https://github.com/aws-robotics/aws-robomaker-small-warehouse-world.git -b ros2
 
 # Build for ROS2
@@ -106,7 +103,7 @@ cd
 git clone https://github.com/tchoopojcharoen/ROS2_pkg_cpp_py.git
 
 # Generate new packages (replace {YOUR_WORKSPACE} and {PACKAGE_NAME} as needed)
-. ROS2_pkg_cpp_py/install_pkg.bash {YOUR_WORKSPACE} {PACKAGE_NAME}
+#. ROS2_pkg_cpp_py/install_pkg.bash {YOUR_WORKSPACE} {PACKAGE_NAME}
 . ROS2_pkg_cpp_py/install_pkg.bash fra532_lecture5_ws fra532_nav
 . ROS2_pkg_cpp_py/install_pkg.bash fra532_lecture5_ws fra532_slam
 . ROS2_pkg_cpp_py/install_pkg.bash fra532_lecture5_ws fra532_gazebo
@@ -237,7 +234,7 @@ colcon build && source install/setup.bash && ros2 launch fra532_gazebo sim.launc
 In the `fra532_slam` Package
 1. Create launch, rviz and config folders.
 2. Edit the CMakeLists.txt to include these folders in the installation section.
-3. Create the file slam.launch.py in the launch folder the following content:
+3. Create the file mapping.launch.py in the launch folder the following content:
 
 ``` python
 import os
@@ -447,6 +444,13 @@ def generate_launch_description():
         mkdir_maps,
         delay_map_saver_cli_after_mkdir_maps
     ])
+```
+
+Build and launch save mapping with:
+
+``` bash
+cd ~/fra532_lecture5_ws
+colcon build && source install/setup.bash && ros2 launch fra532_slam save_map.launch.py
 ```
 
 ## 8. Create a Launch File for Navigation
